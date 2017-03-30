@@ -2,6 +2,7 @@
 <html>
 <head>
 	<title>Chat</title>
+	<meta charset="UTF-8">
 	<style type="text/css">
 		* { margin: 0; padding: 0; box-sizing: border-box; }
 	  body { padding:0px; font: 13px Helvetica, Arial; }
@@ -24,14 +25,21 @@
 	<script type="text/javascript">
 		var socket = io("http://localhost:3000");
 
+		socket.emit('guest join', 'hello1');
+
+		socket.on('servernoti', function(color, msg) {
+			console.log(msg)
+			$("#messages").append($("<li style='background-color: "+color+"'>").text(msg));
+		})
+
 		$('form').submit(function(e) {
 			e.preventDefault();
-			socket.emit('chat message', $('#m').val());
+			socket.emit('send message', $('#m').val());
 			$("#m").val("");
 			return false;
 		});
 
-		socket.on('chat message', function(msg) {
+		socket.on('recv message', function(msg) {
 			$("#messages").append($("<li>").text(msg))
 		})
 	</script>

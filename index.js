@@ -17,7 +17,6 @@ app.set('port', port)
 app.set('view engine', 'jade');
 
 app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
@@ -31,22 +30,59 @@ http.listen(app.get('port'), function() {
   console.log("Express server listening on port " + app.get('port'));
 })
 
+let usernames = []
 
-io.on('connection', function(socket){
-     
-    console.log('a user connected');
-     
-    socket.broadcast.emit('hi');
-     
-    socket.on('disconnect', function(){
-        console.log('user disconnected');
-    });
-     
-    socket.on('chat message', function(msg){
-        console.log('message: ' + msg);
-        io.emit('chat message', msg);
-    }); 
- 
+io.on('connection', function(socket) {
+
+  socket.on('disconnect', function(){
+    delete usernames[socket.username];
+    io.sockets.emit('updateusers', usernames);
+    socket.broadcast.emit('servernoti', 'red', socket.username + ' has disconnected');
+    socket.leave(socket.room);
+  });
+
+  socket.on('send message', function(data) {
+    let msg = "#"+socket.room+" "+socket.username+"님의 메세지: "+ data
+    io.sockets.in(socket.room)
+              .emit('recv message', msg)
+  })
+
+  socket.on('guest join', function(roomname) {
+    let username = socket.id
+    socket.username = username;
+    socket.room = roomname;
+    usernames[username] = username;
+    socket.join(roomname);
+    socket.emit('servernoti', "green", 'you has connected');  
+    let userlist = [];   
+    
+    for (var name in usernames) {
+      userlist.push(usernames[name]);
+    }
+
+    io.sockets.in(socket.room).emit('updateuser', userlist);
+    socket.broadcast.to(roomname).emit('servernoti', "green", username + ' has connected to ' + roomname);  
+  })
+
+  let claim = function(name) {
+    if ( !name || usernames[name] ) return false;
+    else {
+      usernames[name] = true;
+      return true;
+    }
+  }
+
+  let getGuestName = function() {
+    let name, nextUserId = 1;
+    do {
+      name = 'Guest' + (nextUserId ++);
+
+    } while ( !claim(name) );
+
+    return name;
+  }
+  
+
 });
 
 
