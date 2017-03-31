@@ -1,0 +1,10 @@
+{
+  "development": {
+    "username": "dosichultalk",
+    "password": "dosichultalk2580!",
+    "database": "dosichultalk",
+    "host": "127.0.0.1",
+    "dialect": "mysql",
+    "autoMigrateOldSchema": true
+  }
+}

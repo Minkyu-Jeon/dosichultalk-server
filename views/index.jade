@@ -1,0 +1,50 @@
+doctype html
+html
+	head
+		title chat
+		meta(charset="UTF-8")
+		meta(http-equiv="X-UA-Compatible" content="IE=edge")
+		style(type="text/css").
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body { padding:0px; font: 13px Helvetica, Arial; }
+			form { background: #000; padding: 3px; position: fixed; bottom: 0; width: 100%; }
+			form input { border: 0; padding: 10px; width: 90%; margin-right: .5%; }
+			form button { width: 9%; background: rgb(130, 224, 255); border: none; padding: 10px; }
+			#messages { list-style-type: none; margin: 0; padding: 0; }
+			#messages li { padding: 5px 10px; }
+			#messages li:nth-child(odd) { background: #eee; }
+	body
+		ul#messages
+			li.current
+		form(action='')
+			input#m
+			button Send
+		script(type="text/javascript", src="https://cdn.socket.io/socket.io-1.3.7.js")
+		script(src="https://code.jquery.com/jquery-3.2.1.js", integrity="sha256-DZAnKJ/6XZ9si04Hgrsxu/8s717jcIzLy3oi35EouyE=", crossorigin="anonymous")
+		script(type="text/javascript").
+			var sid = "#{id}";
+			
+			var socket = io("http://localhost:3000");
+			var join_room = {room: 'hello1', token: sid};
+			
+			socket.emit('guest join', join_room);
+
+			socket.on('servernoti', function(color, msg) {
+				$("#messages").append($("<li style='background-color: "+color+"'>").text(msg));
+			})
+
+			socket.on("updateuser", function(userlist) {
+				console.log(userlist)
+				$("#messages").find(".current").text("현재인원:" + userlist.length);
+			});
+
+			$('form').submit(function(e) {
+				e.preventDefault();
+				socket.emit('send message', $('#m').val());
+				$("#m").val("");
+				return false;
+			});
+
+			socket.on('recv message', function(msg) {
+				$("#messages").append($("<li>").text(msg))
+			})
