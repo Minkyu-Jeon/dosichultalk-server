@@ -2,6 +2,7 @@ const express = require('express')
 const session = require('express-session')
 const redis = require('redis')
 const RedisStore = require('connect-redis')(session)
+const store = redis.createClient()
 
 const path = require('path')
 const cookieParser = require('cookie-parser')
@@ -32,7 +33,7 @@ app.use(cookieParser());
 
 app.use(session({
   store: new RedisStore(Object.assign({}, app.get('secrets').redis, {
-    client: redis.createClient()
+    client: store
   })),
   secret: app.get('secrets').secret_key_base,
   genid: function(req) {
@@ -51,30 +52,32 @@ http.listen(app.get('port'), function() {
   console.log("Express server listening on port " + app.get('port'));
 })
 
-let userlist = []
+let room = {}
 
 io.on('connection', function(socket) {
 
-  socket.on('disconnect', function(data){
-    const idx = findUserIdx(socket.username)
-    
-    if ( idx != -1 ) {
-      userlist[idx].is_connected = false;
+  socket.on('disconnect', function(data) {
+    console.log('disconnect')
+    const userIdx = findUserIdx(socket.roomname, socket.username)
+
+    if ( userIdx != -1 ) {
+      room[socket.roomname][userIdx].is_connected = false;
       setTimeout(function() {
-        if ( userlist[idx] != undefined && !userlist[idx].is_connected ) {
-          console.log(userlist[socket.username])
-          delete userlist[socket.username];
-          io.sockets.emit('updateuser', userlist);
-          socket.broadcast.emit('servernoti', 'red', socket.username + ' has disconnected');
-          socket.leave(socket.room);
+        if ( room[socket.roomname][userIdx] != undefined && !room[socket.roomname][userIdx].is_connected ) {
+          console.log("room leave user: ")
+          console.log(room[socket.roomname][userIdx])
+          delete room[socket.roomname][userIdx];
+          io.sockets.emit('updateuser', room[socket.roomname]);
+          socket.broadcast.to(socket.roomname).emit('servernoti', 'red', socket.username + ' has disconnected');
+          socket.leave(socket.roomname);
         }
       }, 3000)
     }
   });
 
   socket.on('send message', function(data) {
-    let msg = "#"+socket.room+" "+socket.username+"님의 메세지: "+ data
-    io.sockets.in(socket.room)
+    let msg = "#"+socket.roomname+" "+socket.username+"님의 메세지: "+ data
+    io.sockets.in(socket.roomname)
               .emit('recv message', msg)
   })
 
@@ -85,27 +88,29 @@ io.on('connection', function(socket) {
     let username = token
 
     socket.username = username;
-    socket.room = roomname;
+    socket.roomname = roomname;
 
     socket.join(roomname);
     socket.emit('servernoti', "green", username + ' you has connected');
-    let userIdx = findUserIdx(username)
+    let userIdx = findUserIdx(roomname, username)
 
     if ( userIdx == -1 ) {
-      userlist.push({name: username, is_connected: true})
+      if ( room[roomname] === undefined ) room[roomname] = [];
+
+      room[roomname].push({name: username, is_connected: true})
       socket.broadcast.to(roomname).emit('servernoti', "green", username + ' has connected to ' + roomname);
     }
 
-    userIdx = findUserIdx(username);
-    userlist[userIdx].is_connected = true
-    io.sockets.in(socket.room).emit('updateuser', userlist);
-    console.log("join " + findUserIdx(username) + " / user_id: " + userlist[userIdx].name)
+    userIdx = findUserIdx(roomname, username);
+    room[roomname][userIdx].is_connected = true
+    io.sockets.in(socket.roomname).emit('updateuser', room[roomname]);
+    console.log("join room: " + roomname + " / user_id: " + room[roomname][userIdx].name)
   })
 
-  let findUserIdx = function(name) {
-    return userlist.findIndex(user => { return name == user.name })
+  let findUserIdx = function(roomname, name) {
+    if ( room[roomname] === undefined  ) return -1;
+    return room[roomname].findIndex(user => { return name == user.name })
   }
-
 });
 
 

@@ -24,8 +24,10 @@ html
 		script(type="text/javascript").
 			var sid = "#{id}";
 			
-			var socket = io("http://localhost:3000");
-			var join_room = {room: 'hello1', token: sid};
+			var socket = io("http://#{host}");
+			var join_room = {
+				room: "#{room}", token: sid
+			};
 			
 			socket.emit('guest join', join_room);
 
