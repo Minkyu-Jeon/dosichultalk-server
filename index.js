@@ -52,20 +52,21 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function(data){
     const idx = findUserIdx(socket.username)
-    userlist[idx].is_connected = false;
-
-    setTimeout(function() {
-      if ( userlist[idx] != undefined && !userlist[idx].is_connected ) {
-        delete userlist[socket.username];
-        io.sockets.emit('updateuser', userlist);
-        socket.broadcast.emit('servernoti', 'red', socket.username + ' has disconnected');
-        socket.leave(socket.room);
-      }
-    }, 3000)
+    if ( idx != -1 ) {
+      userlist[idx].is_connected = false;
+      setTimeout(function() {
+        if ( userlist[idx] != undefined && !userlist[idx].is_connected ) {
+          console.log(userlist[socket.username])
+          delete userlist[socket.username];
+          io.sockets.emit('updateuser', userlist);
+          socket.broadcast.emit('servernoti', 'red', socket.username + ' has disconnected');
+          socket.leave(socket.room);
+        }
+      }, 3000)
+    }
   });
 
   socket.on('send message', function(data) {
-    console.log(data);
     let msg = "#"+socket.room+" "+socket.username+"님의 메세지: "+ data
     io.sockets.in(socket.room)
               .emit('recv message', msg)
@@ -74,26 +75,25 @@ io.on('connection', function(socket) {
   socket.on('guest join', function(options) {
     const roomname = options.room
     const token = options.token
-    
+
     let username = token
 
     socket.username = username;
     socket.room = roomname;
-    
-    socket.join(roomname);
-    socket.emit('servernoti', "green", 'you has connected');
 
-    if ( findUserIdx(username) == -1 ) {
-      io.sockets.in(socket.room).emit('updateuser', userlist);
+    socket.join(roomname);
+    socket.emit('servernoti', "green", username + ' you has connected');
+    let userIdx = findUserIdx(username)
+
+    if ( userIdx == -1 ) {
+      userlist.push({name: username, is_connected: true})
       socket.broadcast.to(roomname).emit('servernoti', "green", username + ' has connected to ' + roomname);
     }
 
-    if ( findUserIdx(username) == -1 )
-      userlist.push({name: username, is_connected: true})
-
-    let idx = findUserIdx(username)
-    userlist[idx].is_connected = true
-    
+    userIdx = findUserIdx(username);
+    userlist[userIdx].is_connected = true
+    io.sockets.in(socket.room).emit('updateuser', userlist);
+    console.log("join " + findUserIdx(username) + " / user_id: " + userlist[userIdx].name)
   })
 
   let findUserIdx = function(name) {
