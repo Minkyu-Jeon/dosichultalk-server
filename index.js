@@ -1,5 +1,7 @@
 const express = require('express')
 const session = require('express-session')
+const redis = require('redis')
+const RedisStore = require('connect-redis')(session)
 
 const path = require('path')
 const cookieParser = require('cookie-parser')
@@ -29,6 +31,9 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 app.use(session({
+  store: new RedisStore(Object.assign({}, app.get('secrets').redis, {
+    client: redis.createClient()
+  })),
   secret: app.get('secrets').secret_key_base,
   genid: function(req) {
     return uid.sync(18) // use UUIDs for session IDs
@@ -52,6 +57,7 @@ io.on('connection', function(socket) {
 
   socket.on('disconnect', function(data){
     const idx = findUserIdx(socket.username)
+    
     if ( idx != -1 ) {
       userlist[idx].is_connected = false;
       setTimeout(function() {
